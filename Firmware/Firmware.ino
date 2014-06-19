@@ -6,6 +6,8 @@
 #include <Wire.h>
 #include <Suli.h>
 #include <Adafruit_GPS.h>
+#include <Ethernet.h>
+#include <IniFile.h>
 
 #define COLOR_BLUE 0x0339
 #define COLOR_WHITE 0xFFFF
@@ -30,8 +32,10 @@
 #define MARGIN_BOTTOM 10
 #define MARGIN_LEFT 10
 
-#define ALARM_NUMBER "01624220560"
-#define URGENT_NUMBER "01785516487"
+#define SD_SELECT_PIN 4
+
+String ALARM_NUMBER = "01624220560";
+String URGENT_NUMBER = "01785516487";
 
 boolean clearButtonIsPressed;
 boolean alertButtonIsPressed;
@@ -59,12 +63,12 @@ GPRS GPRSModem( 13 , 12 , 19200 , "internet.t-mobile" , "t-mobile" , "tm" );
 Adafruit_GPS GPS( &Serial3 );
 
 void setup() {
-	
-	Serial.begin( 57600 );
 
 	isAlertState1 = false;
 	isAlertState2 = false;
 	isAlertClear = true;
+
+	SPI.begin();
 
 	Display.init();
 	Display.setContentArea( MARGIN_TOP , MARGIN_RIGHT , MARGIN_BOTTOM , MARGIN_LEFT );
@@ -80,6 +84,12 @@ void setup() {
 
 	uint yPosition = 18;
 	uint yInterval = 18;
+
+	Display.drawStringLeft8px( "Pin 4 als AUSGANG festlegen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
+	pinMode( SD_SELECT_PIN , OUTPUT );
+	digitalWrite( SD_SELECT_PIN , HIGH );
+	Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
+	yPosition += yInterval;
 
 	Display.drawStringLeft8px( "Pin 17 als AUSGANG festlegen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
 	pinMode( 9 , OUTPUT );
@@ -102,6 +112,48 @@ void setup() {
 	alertButtonIsPressed = false;
 	Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
 	yPosition += yInterval;
+
+	Display.drawStringLeft8px( "INI Datei lesen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
+	if( !SD.begin( SD_SELECT_PIN ) ){
+		Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
+	} else {
+		const char *fileName = "config.ini";
+		IniFile ini( fileName );
+		if( !ini.open() ) {
+			Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
+		} else {
+			Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
+			const size_t bufferLen = 200;
+ 			char buffer[ bufferLen ];
+ 			yPosition += yInterval;
+ 			Display.drawStringLeft8px( "INI Datei validieren" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
+			if( !ini.validate( buffer , bufferLen ) ) {
+				Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
+			} else {
+				Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
+
+				yPosition += yInterval;
+ 				Display.drawStringLeft8px( "Telefonnummer 1 einlesen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
+				if( ini.getValue( "settings" , "phone_01" , buffer , bufferLen ) ) {
+					ALARM_NUMBER = String( buffer );
+					Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
+				} else {
+					Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
+				}
+
+				yPosition += yInterval;
+ 				Display.drawStringLeft8px( "Telefonnummer 2 einlesen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
+				if( ini.getValue( "settings" , "phone_02" , buffer , bufferLen ) ) {
+					URGENT_NUMBER = String( buffer );
+					Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
+				} else {
+					Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
+				}
+			}
+		}
+	}
+	yPosition += yInterval;
+
 	
 	Display.drawStringLeft8px( "Starte GPS Sensor" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
 	GPS.begin( 9600 );
@@ -387,6 +439,7 @@ void DrawClearBar( uint milliseconds ) {
 
 void SendAlertTextMessage(){
 	char MessageArray[160];
+	char NumberArray[160];
 	if( alertButtonPressedTime >= ALARM_TIME && alertButtonPressedTime < URGENT_TIME ) {
 		String Message = "";
 		String latitude = CordinateToString( GPS.latitude );
@@ -400,15 +453,13 @@ void SendAlertTextMessage(){
 		Message += "\r\nIMEI: ";
 		Message += mobileIMEI;
 		Message += "\r\nAnfordern: POLIZEI ";
-	
-		Serial.println( Message );
-		Serial.println( Message.length() );
 
 		String Output = "SMS an ";
 		Output += ALARM_NUMBER;
 		Display.drawStringLeft8px( Output , 250 , COLOR_FOREGROUND , COLOR_BACKGROUND );
 		Message.toCharArray( MessageArray , Message.length() + 1 );
-		int check = GPRSModem.sendSMS( ALARM_NUMBER , MessageArray );
+		ALARM_NUMBER.toCharArray( NumberArray , ALARM_NUMBER.length() + 1 );
+		int check = GPRSModem.sendSMS( NumberArray , MessageArray );
 
 		delay( 1000 );
 
@@ -419,7 +470,7 @@ void SendAlertTextMessage(){
 		Message += "&t=h&z=14 ";
 	
 		Message.toCharArray( MessageArray , Message.length() + 1 );
-		GPRSModem.sendSMS( ALARM_NUMBER , MessageArray );
+		GPRSModem.sendSMS( NumberArray , MessageArray );
 
 		if( check == 0 ) Display.drawStringRight8px( "OK" , 250 , COLOR_GREEN , COLOR_BACKGROUND );
 		if( check == 1 ) Display.drawStringRight8px( "ERROR" , 250 , COLOR_RED , COLOR_BACKGROUND );
@@ -444,20 +495,18 @@ void SendAlertTextMessage(){
 		Message2 += longitude;
 		Message2 += "&t=h&z=14 ";
 
-		Serial.println( Message );
-		Serial.println( Message.length() );
-
 		String Output = "SMS an ";
 		Output += ALARM_NUMBER;
 		Display.drawStringLeft8px( Output , 250 , COLOR_FOREGROUND , COLOR_BACKGROUND );
 
 		Message.toCharArray( MessageArray , Message.length() + 1 );
-		int check = GPRSModem.sendSMS( ALARM_NUMBER , MessageArray );
+		ALARM_NUMBER.toCharArray( NumberArray , ALARM_NUMBER.length() + 1 );
+		int check = GPRSModem.sendSMS( NumberArray , MessageArray );
 
 		delay( 1000 );
 
 		Message2.toCharArray( MessageArray , Message2.length() + 1 );
-		GPRSModem.sendSMS( ALARM_NUMBER , MessageArray );
+		GPRSModem.sendSMS( NumberArray , MessageArray );
 
 		if( check == 0 ) Display.drawStringRight8px( "OK" , 250 , COLOR_GREEN , COLOR_BACKGROUND );
 		if( check == 1 ) Display.drawStringRight8px( "ERROR" , 250 , COLOR_RED , COLOR_BACKGROUND );
@@ -469,12 +518,13 @@ void SendAlertTextMessage(){
 		Display.drawStringLeft8px( Output , 268 , COLOR_FOREGROUND , COLOR_BACKGROUND );
 
 		Message.toCharArray( MessageArray , Message.length() + 1 );
-		check = GPRSModem.sendSMS( URGENT_NUMBER , MessageArray );
+		URGENT_NUMBER.toCharArray( NumberArray , ALARM_NUMBER.length() + 1 );
+		check = GPRSModem.sendSMS( NumberArray , MessageArray );
 
 		delay( 1000 );
 
 		Message2.toCharArray( MessageArray , Message2.length() + 1 );
-		GPRSModem.sendSMS( URGENT_NUMBER , MessageArray );
+		GPRSModem.sendSMS( NumberArray , MessageArray );
 
 		if( check == 0 ) Display.drawStringRight8px( "OK" , 268 , COLOR_GREEN , COLOR_BACKGROUND );
 		if( check == 1 ) Display.drawStringRight8px( "ERROR" , 268 , COLOR_RED , COLOR_BACKGROUND );
