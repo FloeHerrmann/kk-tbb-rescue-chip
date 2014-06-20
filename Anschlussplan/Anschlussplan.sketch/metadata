@@ -5,17 +5,17 @@
 	<key>app</key>
 	<string>com.bohemiancoding.sketch3.beta</string>
 	<key>build</key>
-	<integer>7595</integer>
+	<integer>7897</integer>
 	<key>commit</key>
-	<string>34b5777403d6234c093967ba3e8aa941bff3a8cc</string>
+	<string>2e8c4e266baf5530d8e82e926c044862dadf14ed</string>
 	<key>fonts</key>
 	<array>
 		<string>DINPro-Regular</string>
 		<string>SourceCodePro-Regular</string>
 	</array>
 	<key>length</key>
-	<integer>3718400</integer>
+	<integer>3728360</integer>
 	<key>version</key>
-	<integer>36</integer>
+	<integer>37</integer>
 </dict>
 </plist>
