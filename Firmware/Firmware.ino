@@ -261,6 +261,10 @@ void loop() {
 		isAlertClear = true;
 		alertButtonPressedTime = 0;
 		alertButtonIsPressed = false;
+		Display.fillRectangle( 0 , 250 , 240 , 60 , COLOR_WHITE );
+		digitalWrite( 17 , HIGH );
+		delay( 300 );
+		digitalWrite( 17 , LOW );
 	}
 
 	if( ( millis() - DisplayTimer ) > DISPLAY_UPDATE_TIME ) {
@@ -472,7 +476,12 @@ void SendAlertTextMessage(){
 		Message.toCharArray( MessageArray , Message.length() + 1 );
 		GPRSModem.sendSMS( NumberArray , MessageArray );
 
-		if( check == 0 ) Display.drawStringRight8px( "OK" , 250 , COLOR_GREEN , COLOR_BACKGROUND );
+		if( check == 0 ) {
+			Display.drawStringRight8px( "OK" , 250 , COLOR_GREEN , COLOR_BACKGROUND );
+			digitalWrite( 17 , HIGH );
+			delay( 300 );
+			digitalWrite( 17 , LOW );
+		}
 		if( check == 1 ) Display.drawStringRight8px( "ERROR" , 250 , COLOR_RED , COLOR_BACKGROUND );
 	} else if( alertButtonPressedTime >= URGENT_TIME ){
 		String Message = "";
@@ -508,7 +517,12 @@ void SendAlertTextMessage(){
 		Message2.toCharArray( MessageArray , Message2.length() + 1 );
 		GPRSModem.sendSMS( NumberArray , MessageArray );
 
-		if( check == 0 ) Display.drawStringRight8px( "OK" , 250 , COLOR_GREEN , COLOR_BACKGROUND );
+		if( check == 0 ) {
+			Display.drawStringRight8px( "OK" , 250 , COLOR_GREEN , COLOR_BACKGROUND );
+			digitalWrite( 17 , HIGH );
+			delay( 300 );
+			digitalWrite( 17 , LOW );
+		}	
 		if( check == 1 ) Display.drawStringRight8px( "ERROR" , 250 , COLOR_RED , COLOR_BACKGROUND );
 
 		delay( 1000 );
@@ -526,7 +540,12 @@ void SendAlertTextMessage(){
 		Message2.toCharArray( MessageArray , Message2.length() + 1 );
 		GPRSModem.sendSMS( NumberArray , MessageArray );
 
-		if( check == 0 ) Display.drawStringRight8px( "OK" , 268 , COLOR_GREEN , COLOR_BACKGROUND );
+		if( check == 0 ) {
+			Display.drawStringRight8px( "OK" , 268 , COLOR_GREEN , COLOR_BACKGROUND );
+			digitalWrite( 17 , HIGH );
+			delay( 300 );
+			digitalWrite( 17 , LOW );
+		}	
 		if( check == 1 ) Display.drawStringRight8px( "ERROR" , 268 , COLOR_RED , COLOR_BACKGROUND );
 
 	}
