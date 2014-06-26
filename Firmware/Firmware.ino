@@ -7,7 +7,7 @@
 #include <Suli.h>
 #include <Adafruit_GPS.h>
 #include <Ethernet.h>
-#include <IniFile.h>
+#include <Ini.h>
 
 #define COLOR_BLUE 0x0339
 #define COLOR_WHITE 0xFFFF
@@ -63,12 +63,48 @@ GPRS GPRSModem( 13 , 12 , 19200 , "internet.t-mobile" , "t-mobile" , "tm" );
 Adafruit_GPS GPS( &Serial3 );
 
 void setup() {
-
 	isAlertState1 = false;
 	isAlertState2 = false;
 	isAlertClear = true;
 
-	SPI.begin();
+	int readSDError = 0;
+	pinMode(SS, OUTPUT);
+	pinMode( 4 , OUTPUT );
+	pinMode( 5 , OUTPUT );
+	pinMode( 6 , OUTPUT );
+	pinMode(SS, OUTPUT);
+  
+	digitalWrite( 4 , HIGH );
+	digitalWrite( 5 , HIGH );
+	digitalWrite( 6 , HIGH );
+
+	if( !SD.begin( 4 ) ){
+		readSDError = 1;
+	} else {
+		const char *fileName = "config.ini";
+		Ini ini( fileName );
+		if( !ini.open() ) {
+			readSDError = 2;
+		} else {
+			const size_t bufferLen = 200;
+ 			char buffer[ bufferLen ];
+			if( !ini.validate( buffer , bufferLen ) ) {
+				readSDError = 3;
+			} else {
+				if( ini.getValue( "settings" , "phone_01" , buffer , bufferLen ) ) {
+					ALARM_NUMBER = String( buffer );
+				} else {
+					readSDError = 4;Serial.println( readSDError );
+				}
+				if( ini.getValue( "settings" , "phone_02" , buffer , bufferLen ) ) {
+					URGENT_NUMBER = String( buffer );
+				} else {
+					readSDError = 5;Serial.println( readSDError );
+				}
+			}
+		}
+	}
+	SD.end();
 
 	Display.init();
 	Display.setContentArea( MARGIN_TOP , MARGIN_RIGHT , MARGIN_BOTTOM , MARGIN_LEFT );
@@ -114,44 +150,16 @@ void setup() {
 	yPosition += yInterval;
 
 	Display.drawStringLeft8px( "INI Datei lesen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
-	if( !SD.begin( SD_SELECT_PIN ) ){
-		Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
-	} else {
-		const char *fileName = "config.ini";
-		IniFile ini( fileName );
-		if( !ini.open() ) {
-			Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
-		} else {
-			Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
-			const size_t bufferLen = 200;
- 			char buffer[ bufferLen ];
- 			yPosition += yInterval;
- 			Display.drawStringLeft8px( "INI Datei validieren" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
-			if( !ini.validate( buffer , bufferLen ) ) {
-				Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
-			} else {
-				Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
-
-				yPosition += yInterval;
- 				Display.drawStringLeft8px( "Telefonnummer 1 einlesen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
-				if( ini.getValue( "settings" , "phone_01" , buffer , bufferLen ) ) {
-					ALARM_NUMBER = String( buffer );
-					Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
-				} else {
+Serial.println( readSDError );
+if( readSDError != 0 ) {
 					Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
-				}
-
-				yPosition += yInterval;
- 				Display.drawStringLeft8px( "Telefonnummer 2 einlesen" , yPosition , COLOR_FOREGROUND , COLOR_BACKGROUND );
-				if( ini.getValue( "settings" , "phone_02" , buffer , bufferLen ) ) {
-					URGENT_NUMBER = String( buffer );
-					Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
 				} else {
-					Display.drawStringRight8px( "ERROR" , yPosition , COLOR_RED , COLOR_BACKGROUND );
-				}
-			}
-		}
-	}
+    Display.drawStringRight8px( "OK" , yPosition , COLOR_GREEN , COLOR_BACKGROUND );
+    yPosition += yInterval;
+    Display.drawStringRight8px( ALARM_NUMBER , yPosition , COLOR_BLUE , COLOR_BACKGROUND );
+    yPosition += yInterval;
+    Display.drawStringRight8px( URGENT_NUMBER , yPosition , COLOR_BLUE , COLOR_BACKGROUND );
+}
 	yPosition += yInterval;
 
 	
@@ -448,12 +456,22 @@ void SendAlertTextMessage(){
 		String Message = "";
 		String latitude = CordinateToString( GPS.latitude );
 		String longitude = CordinateToString( GPS.longitude );
+		Serial.println( GPS.latitude );
+		Serial.println( GPS.longitude );
 		Message = "Hilfe: Ich hatte einen Unfall!\r\nLangengrad: ";
-		Message += latitude;
-		Message += GPS.lat;
+		if( GPS.latitude != 0.0 ) {
+			Message += latitude;
+			Message += GPS.lat;
+		} else {
+			Message += "-";
+		}
 		Message += "\r\nBreitengrad: ";
-		Message += longitude;
-		Message += GPS.lon;
+		if( GPS.longitude != 0.0 ) {
+			Message += longitude;
+			Message += GPS.lon;
+		} else {
+			Message += "-";
+		}
 		Message += "\r\nIMEI: ";
 		Message += mobileIMEI;
 		Message += "\r\nAnfordern: POLIZEI ";
